@@ -120,7 +120,7 @@ max_run_history = 50
 [cron.jobs.delivery]
 mode = "announce"
 channel = "telegram"
-to = "1004394120"
+to = "<your-telegram-id>"
 best_effort = true
 
 [channels_config]
