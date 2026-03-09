@@ -1,0 +1,62 @@
+# ZeroClaw Docker Compose Example
+#
+# Quick start:
+#   1. Copy this file and set your API key
+#   2. Run: docker compose up -d
+#   3. Access gateway at http://localhost:42617
+#
+# For more info: https://github.com/zeroclaw-labs/zeroclaw
+
+services:
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  zeroclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - ZEROCLAW_VERSION=${ZEROCLAW_VERSION:-v0.1.7}
+    container_name: zeroclaw
+    restart: unless-stopped
+    command: daemon
+    depends_on:
+      - redis
+    environment:
+      - ZEROCLAW_ALLOW_PUBLIC_BIND=true
+      - ZEROCLAW_GATEWAY_PORT=${ZEROCLAW_GATEWAY_PORT:-42617}
+      #- RUST_LOG=debug
+      #- RUST_BACKTRACE=1
+    env_file: .env
+    volumes:
+      # Persist workspace and config
+      - zeroclaw-data:/zeroclaw-data
+      # Mount docker socket for DockerRuntime
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      # Gateway API port
+      - "${HOST_PORT:-42617}:${ZEROCLAW_GATEWAY_PORT:-42617}"
+
+    # Health check — uses lightweight status instead of full diagnostics.
+    # For images with curl, prefer: curl -f http://localhost:42617/health
+    healthcheck:
+      test: ["CMD", "zeroclaw", "status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  chrome:
+    image: gcr.io/zenika-hub/alpine-chrome:124
+    restart: unless-stopped
+    command:
+      - --no-sandbox
+      - --disable-gpu
+      - --disable-dev-shm-usage
+      - --remote-debugging-address=0.0.0.0
+      - --remote-debugging-port=9222
+      - --hide-scrollbars
+
+volumes:
+  zeroclaw-data:
