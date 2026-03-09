@@ -111,7 +111,7 @@ rules = []
 enabled = true
 interval_minutes = 60
 target = "telegram"
-to = "1004394120"
+to = "<your-telegram-user-id>"
 
 [cron]
 enabled = true
