@@ -1,13 +1,20 @@
-default_provider = "custom:https://your-llm-gateway/v1"
+default_provider = "custom:http://llm-gateway/v1"
 default_temperature = 0.7
 default_model = "gpt-5-mini"
 api_key = "<your-api-key>"
 
+# Optimized Model Routing
 model_routes = [
-    { hint = "gemini-lite", provider = "custom:https://your-llm-gateway/v1", model = "gemini-3.1-flash-lite-preview" },
-    { hint = "gpt-5-code", provider = "custom:https://your-llm-gateway/v1", model = "gpt-5.3-codex" },
-    { hint = "reasoning", provider = "custom:https://your-llm-gateway/v1", model = "gpt-5-mini" }
+    { hint = "fast",      provider = "custom:http://llm-gateway/v1", model = "gemini-3.1-flash-lite-preview" },
+    { hint = "coder",     provider = "custom:http://llm-gateway/v1", model = "gpt-5.2-codex"},
+    { hint = "reasoning", provider = "custom:http://llm-gateway/v1", model = "deepseek-v3.2"}
 ]
+
+[model_providers.my_proxy]
+name = "custom"
+base_url = "http://llm-gateway/v1"
+wire_api = "chat_completions"
+requires_openai_auth = true
 
 [observability]
 backend = "none"
@@ -101,11 +108,30 @@ tool_dispatcher = "auto"
 [skills]
 open_skills_enabled = false
 prompt_injection_mode = "compact"
-allow_scripts = true
 
 [query_classification]
-enabled = false
-rules = []
+enabled = true
+
+# Routine tasks go to Gemini Flash Lite (Fast & Free)
+[[query_classification.rules]]
+hint = "fast"
+keywords = ["hi", "hello", "thanks", "status", "help", "time", "date", "heartbeat"]
+max_length = 200
+priority = 100
+
+# Technical/Dev tasks go to GPT-5.2 Codex (Max Productivity)
+[[query_classification.rules]]
+hint = "coder"
+keywords = ["code", "debug", "rust", "python", "fix", "api", "refactor"]
+patterns = ["fn ", "def ", "struct ", "impl ", "import ", "class "]
+priority = 80
+
+# Complex reasoning tasks go to DeepSeek (High Logic)
+[[query_classification.rules]]
+hint = "reasoning"
+keywords = ["analyze", "explain why", "detailed strategy", "comparison", "logic"]
+min_length = 300
+priority = 60
 
 [heartbeat]
 enabled = true
@@ -134,19 +160,6 @@ stream_mode = "partial"
 draft_update_interval_ms = 1000
 interrupt_on_new_message = true
 mention_only = false
-
-[channels_config.email]
-imap_host = "imap.gmail.com"
-imap_port = 993
-imap_folder = "INBOX"
-smtp_host = "smtp.gmail.com"
-smtp_port = 465
-smtp_tls = true
-username = "<your-gmail-address>"
-password = "<your-gmail-app-password>"
-from_address = "<your-gmail-address>"
-idle_timeout_secs = 1740
-allowed_senders = ["*"]
 
 [memory]
 backend = "sqlite"
@@ -183,6 +196,7 @@ port = 42617
 host = "[::]"
 require_pairing = true
 allow_public_bind = true
+paired_tokens = ["<your-existing-paired-tokens>"]
 pair_rate_limit_per_minute = 10
 webhook_rate_limit_per_minute = 60
 trust_forwarded_headers = false
@@ -218,12 +232,13 @@ timeout_secs = 30
 
 [multimodal]
 max_images = 4
-max_image_size_mb = 5
+max_images_size_mb = 5
 allow_remote_fetch = false
 
 [web_search]
 enabled = true
-provider = "duckduckgo"
+provider = "tavily"
+api_key = "<your-tavily-api-key>"
 max_results = 15
 timeout_secs = 15
 
@@ -243,47 +258,52 @@ monthly_limit_usd = 100.0
 warn_at_percent = 80
 allow_override = false
 
-[cost.prices."openai/o1-preview"]
-input = 15.0
-output = 60.0
-
-[cost.prices."anthropic/claude-3-haiku"]
-input = 0.25
-output = 1.25
-
-[cost.prices."openai/gpt-4o-mini"]
+[cost.prices."gpt-5-mini"]
 input = 0.15
 output = 0.6
 
-[cost.prices."anthropic/claude-opus-4-20250514"]
-input = 15.0
-output = 75.0
+[cost.prices."gemini-3.1-flash-lite-preview"]
+input = 0.075
+output = 0.3
 
-[cost.prices."openai/gpt-4o"]
+[cost.prices."gpt-5.2-codex"]
 input = 5.0
 output = 15.0
 
-[cost.prices."google/gemini-2.0-flash"]
-input = 0.1
-output = 0.4
+[cost.prices."deepseek-v3.2"]
+input = 0.14
+output = 0.28
 
-[cost.prices."anthropic/claude-3.5-sonnet"]
-input = 3.0
-output = 15.0
+[cost.prices."text-embedding-3-small"]
+input = 0.02
+output = 0.0
 
-[cost.prices."google/gemini-1.5-pro"]
-input = 1.25
-output = 5.0
-
-[cost.prices."anthropic/claude-sonnet-4-20250514"]
-input = 3.0
-output = 15.0
+[cost.prices."whisper-large-v3-turbo"]
+input = 0.0
+output = 0.0
 
 [peripherals]
 enabled = false
 boards = []
 
-[agents]
+[agents.researcher]
+provider = "custom:http://llm-gateway/v1"
+model = "gemini-3.1-flash-lite-preview"
+system_prompt = "You are a research assistant. Focus on speed and breadth."
+agentic = true
+allowed_tools = ["web_search", "http_request", "file_read"]
+max_depth = 2
+max_iterations = 10
+
+[agents.coder]
+provider = "custom:http://llm-gateway/v1"
+model = "gpt-5.2-codex"
+system_prompt = "You are an expert coder. Write high-quality, documented Rust code."
+agentic = true
+allowed_tools = ["shell", "file_read", "file_write"]
+max_depth = 2
+max_iterations = 15
+
 
 [hooks]
 enabled = true
